@@ -1,21 +1,54 @@
-#include<AccelStepper.h>
-#include<Servo.h>
+#include <AccelStepper.h>
+#include <Servo.h>
 #include <Metro.h>
 
-int servo = A9;
+// Servo constants and instances
+#define SERVO_PIN A9
 Servo latch;
 
-#define STEP_HL 14
-#define DIR_HL 15
-#define STEP_HR 16
-#define DIR_HR 17
+// Stepper constants and instances
+#define STEP_VL   14
+#define DIR_VL    15
+#define STEP_VR   16
+#define DIR_VR    17
 
-#define STEP_VL 18
-#define DIR_VL 19
-#define STEP_VR 20
-#define DIR_VR 21
+#define STEP_HL   18
+#define DIR_HL    19
+#define STEP_HR   20
+#define DIR_HR    21
 
-#define MAX_SPEED 280
+#define MAX_SPEED 1000
+#define MAX_ACCEL 1000
+
+#define HORIZONTAL_MOTORS 0
+#define VERTICAL_MOTORS   1
+#define OPEN 0
+#define CLOSE 1
+
+#define DIR_RIGHT -1
+#define DIR_LEFT  1
+#define DIR_FRONT 1
+#define DIR_BACK  -1
+
+#define STEPS_PER_INCH    80
+
+#define INCHES_START_TO_A 19
+#define INCHES_A_TO_PO    18
+#define INCHES_PO_TO_B    17
+#define INCHES_B_TO_GATE  21
+
+enum State {
+  INIT_0,
+  FORWARD_1,
+  DROP_BALLS_2,
+  FORWARD_3,
+  DROP_BALLS_4,
+  FORWARD_5,
+  RIGHT_6,
+
+  RAM_1,
+  RAM_2,
+};
 
 AccelStepper motor_horizontalL(1, STEP_HL, DIR_HL);
 AccelStepper motor_horizontalR(1, STEP_HR, DIR_HR);
@@ -23,13 +56,13 @@ AccelStepper motor_verticalL(1, STEP_VL, DIR_VL);
 AccelStepper motor_verticalR(1, STEP_VR, DIR_VR);
 
 static Metro timer = Metro(0);
-int state = 0;
+State state = INIT_0;
 
 //predeclaration
 bool waitForTime(int delayTime);
 int mapSpeed(int speedUnmapped);
 void runMotor(char* motor, int speedinput, int dir);
-void moveLatch(char* pos);
+void moveLatch(int pos);
 
 void setup() {
   Serial.begin(9600);
@@ -37,6 +70,11 @@ void setup() {
   motor_horizontalR.setMaxSpeed(MAX_SPEED);
   motor_verticalL.setMaxSpeed(MAX_SPEED);
   motor_verticalR.setMaxSpeed(MAX_SPEED);
+  
+  motor_horizontalL.setAcceleration(MAX_ACCEL);
+  motor_horizontalR.setAcceleration(MAX_ACCEL);
+  motor_verticalL.setAcceleration(MAX_ACCEL);
+  motor_verticalR.setAcceleration(MAX_ACCEL);
 
   pinMode(STEP_HL, OUTPUT);
   pinMode(STEP_HR, OUTPUT);
@@ -47,8 +85,10 @@ void setup() {
   pinMode(DIR_VL, OUTPUT);
   pinMode(DIR_VR, OUTPUT);
 
-  latch.attach(servo);
-  moveLatch("close");
+  latch.attach(SERVO_PIN);
+//  moveLatch(CLOSE);
+  latch.write(0);
+
   delay(2000);
 }
 
@@ -74,7 +114,6 @@ void runMotor(char* motor, int speedinput, int dir){
     motor_horizontalR.setSpeed(speedMapped * -1* dir);
     motor_horizontalL.runSpeed();
     motor_horizontalR.runSpeed();
-    //Serial.println(speedMapped);
   }
   else if(motor == "Vertical"){
     motor_verticalL.setSpeed(speedMapped * dir);
@@ -87,33 +126,118 @@ void runMotor(char* motor, int speedinput, int dir){
   }
 }
 
-void moveLatch(char* pos){
-  if(pos == "open"){
-    latch.write(180);
-  }
-  else if(pos == "close"){
-    latch.write(0);
-  }
-  else{
-    Serial.println("moveLatch input error!");
+void driveTo(int dir, int distance) {
+  if (dir == HORIZONTAL_MOTORS) {
+    motor_horizontalL.move(distance);
+    motor_horizontalR.move(-distance);
+    motor_verticalL.move(0);
+    motor_verticalR.move(0);
+  } else if (dir == VERTICAL_MOTORS) {
+    motor_horizontalL.move(0);
+    motor_horizontalR.move(0);
+    motor_verticalL.move(distance);
+    motor_verticalR.move(-distance);
+  } else {
+    Serial.println("driveTo input error!");
   }
 }
 
-void loop() {
-  static int dir = 1;
+void moveLatch(int pos){
+  static int lastPos  = CLOSE;
+  if(pos == OPEN && lastPos != OPEN){
+    Serial.println("OPENING");
+    lastPos = OPEN;
+    latch.write(45);
+  }
+  else if(pos == CLOSE && lastPos != CLOSE){
+    Serial.println("CLOSING");
+    lastPos = CLOSE;
+    latch.write(0);
+  }
+//  else{
+//    Serial.println("moveLatch input error!");
+//  }
+}
 
+bool driveDoneMoving() {
+  return (motor_horizontalR.distanceToGo() == 0 &&
+          motor_horizontalL.distanceToGo() == 0 &&
+          motor_verticalR.distanceToGo() == 0 &&
+          motor_verticalL.distanceToGo() == 0);
+}
+
+static int startT = 0;
+void loop() {
+
+  motor_horizontalL.run();
+  motor_horizontalR.run();
+  motor_verticalL.run();
+  motor_verticalR.run();
+  
   switch(state){
-    case 0:
-      runMotor("Horizontal", 100, dir);
-      if(waitForTime(2000)) state += 1;
+    case INIT_0:
+      driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * INCHES_START_TO_A);
+      state = FORWARD_1;
+      break;
+    
+    case FORWARD_1:
+      if (driveDoneMoving()) {
+        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * 2);
+        state = RAM_1;
+      }
       break;
 
-    case 1:
-      runMotor("Horizontal", 0, dir);
-      runMotor("Vertical", 100, dir);
-      if(waitForTime(2000)) state = 0;
+    case RAM_1:
+      if (driveDoneMoving()) {
+        state = DROP_BALLS_2;
+        timer.reset();
+      }
+      break;
+      
+    case DROP_BALLS_2:
+      moveLatch(OPEN);
+      if (waitForTime(140)) {
+        moveLatch(CLOSE);
+        driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * (INCHES_A_TO_PO + INCHES_PO_TO_B));
+        state = FORWARD_3;
+      }
+      break;
+    
+    case FORWARD_3:
+      if (driveDoneMoving()) {
+        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * 2);
+        state = RAM_2;
+      }
+      break;
+
+    case RAM_2:
+      if (driveDoneMoving()) {
+        state = DROP_BALLS_4;
+        timer.reset();
+      }
+      break;
+    
+    case DROP_BALLS_4:
+      moveLatch(OPEN);
+      if (waitForTime(160)) {
+        moveLatch(CLOSE);
+        driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * INCHES_B_TO_GATE);
+        state = FORWARD_5;
+      }
+      break;
+    
+    case FORWARD_5:
+      if (driveDoneMoving()) {
+        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * INCHES_B_TO_GATE * 1.5);
+        state = RIGHT_6;
+      }
+      break;
+    
+    case RIGHT_6:
       break;
   }
+
+  
   /*
   runMotor("Horizontal", 100, dir);
   runMotor("Vertical", 100, dir);
