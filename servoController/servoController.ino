@@ -1,15 +1,17 @@
 #include<Servo.h>
 
-int servo = A0;
+int servo = A9;
 Servo latch;
 
 void setup() {
   latch.attach(servo);
+  latch.write(90);
+  delay(1000);
 }
 
 void loop() {
-  latch.write(0);
-  delay(1000);
+  
+//  delay(1000);
   latch.write(180);
   delay(1000);
 
