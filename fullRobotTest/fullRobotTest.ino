@@ -7,15 +7,11 @@
 Servo latch;
 
 // Stepper constants and instances
-#define STEP_VL   14
-#define DIR_VL    15
-#define STEP_VR   16
-#define DIR_VR    17
+#define STEP_V   14
+#define DIR_V    15
 
-#define STEP_HL   20
-#define DIR_HL    21
-#define STEP_HR   18
-#define DIR_HR    19
+#define STEP_H   20
+#define DIR_H    21
 
 #define MAX_SPEED 1000
 //#define MAX_SPEED 100
@@ -58,10 +54,8 @@ enum State {
   RAM_2,
 };
 
-AccelStepper motor_horizontalL(1, STEP_HL, DIR_HL);
-//AccelStepper motor_horizontalR(1, STEP_HR, DIR_HR);
-AccelStepper motor_verticalL(1, STEP_VL, DIR_VL);
-//AccelStepper motor_verticalR(1, STEP_VR, DIR_VR);
+AccelStepper motor_horizontal(1, STEP_H, DIR_H);
+AccelStepper motor_vertical(1, STEP_V, DIR_V);
 
 static Metro timer = Metro(0);
 State state = INIT_0;
@@ -74,23 +68,19 @@ void moveLatch(int pos);
 
 void setup() {
   Serial.begin(9600);
-  motor_horizontalL.setMaxSpeed(MAX_SPEED);
-//  motor_horizontalR.setMaxSpeed(MAX_SPEED);
-  motor_verticalL.setMaxSpeed(MAX_SPEED);
-//  motor_verticalR.setMaxSpeed(MAX_SPEED);
+  motor_horizontal.setMaxSpeed(MAX_SPEED);
+  motor_vertical.setMaxSpeed(MAX_SPEED);
   
-  motor_horizontalL.setAcceleration(MAX_ACCEL);
-//  motor_horizontalR.setAcceleration(MAX_ACCEL);
-  motor_verticalL.setAcceleration(MAX_ACCEL);
-//  motor_verticalR.setAcceleration(MAX_ACCEL);
+  motor_horizontal.setAcceleration(MAX_ACCEL);
+  motor_vertical.setAcceleration(MAX_ACCEL);
 
-  pinMode(STEP_HL, OUTPUT);
+  pinMode(STEP_H, OUTPUT);
   pinMode(STEP_HR, OUTPUT);
-  pinMode(DIR_HL, OUTPUT);
+  pinMode(DIR_H, OUTPUT);
   pinMode(DIR_HR, OUTPUT);
-  pinMode(STEP_VL, OUTPUT);
+  pinMode(STEP_V, OUTPUT);
   pinMode(STEP_VR, OUTPUT);
-  pinMode(DIR_VL, OUTPUT);
+  pinMode(DIR_V, OUTPUT);
   pinMode(DIR_VR, OUTPUT);
 
   latch.attach(SERVO_PIN);
@@ -117,15 +107,15 @@ int mapSpeed(int speedUnmapped){
 //void runMotor(char* motor, int speedinput, int dir){
 //  int speedMapped = mapSpeed(speedinput);
 //  if(motor == "Horizontal"){
-//    motor_horizontalL.setSpeed(speedMapped * dir);
+//    motor_horizontal.setSpeed(speedMapped * dir);
 //    motor_horizontalR.setSpeed(speedMapped * -1* dir);
-//    motor_horizontalL.runSpeed();
+//    motor_horizontal.runSpeed();
 //    motor_horizontalR.runSpeed();
 //  }
 //  else if(motor == "Vertical"){
-//    motor_verticalL.setSpeed(speedMapped * dir);
+//    motor_vertical.setSpeed(speedMapped * dir);
 //    motor_verticalR.setSpeed(speedMapped * -1* dir);
-//    motor_verticalL.runSpeed();
+//    motor_vertical.runSpeed();
 //    motor_verticalR.runSpeed();
 //  }
 //  else{
@@ -138,27 +128,27 @@ void driveTo(int dir, int distance) {
   int steps = STEPS_PER_INCH * distance;
   switch(dir){
     case DIR_UP:
-      motor_horizontalL.move(-steps);
+      motor_horizontal.move(-steps);
       motor_horizontalR.move(steps);
-      motor_verticalL.move(0);
+      motor_vertical.move(0);
       motor_verticalR.move(0);
       break;
     case DIR_DOWN:
-      motor_horizontalL.move(steps);
+      motor_horizontal.move(steps);
       motor_horizontalR.move(-steps);
-      motor_verticalL.move(0);
+      motor_vertical.move(0);
       motor_verticalR.move(0);
       break;
     case DIR_LEFT:
-      motor_horizontalL.move(0);
+      motor_horizontal.move(0);
       motor_horizontalR.move(0);
-      motor_verticalL.move(steps);
+      motor_vertical.move(steps);
       motor_verticalR.move(-steps);
       break;
     case DIR_RIGHT:
-      motor_horizontalL.move(0);
+      motor_horizontal.move(0);
       motor_horizontalR.move(0);
-      motor_verticalL.move(-steps);
+      motor_vertical.move(-steps);
       motor_verticalR.move(steps);
       break;
     default:
@@ -167,13 +157,13 @@ void driveTo(int dir, int distance) {
 }
 
 void driveToCoordinate(int x, int y) {
-    motor_horizontalL.moveTo(STEPS_PER_INCH * y);
-    motor_verticalL.moveTo(STEPS_PER_INCH * x);
+    motor_horizontal.moveTo(STEPS_PER_INCH * y);
+    motor_vertical.moveTo(STEPS_PER_INCH * x);
 }
 
 void resetCoordinates() {
-  motor_horizontalL.setCurrentPosition(0);
-  motor_verticalL.setCurrentPosition(0);
+  motor_horizontal.setCurrentPosition(0);
+  motor_vertical.setCurrentPosition(0);
 }
 
 void moveLatch(int pos){
@@ -194,18 +184,14 @@ void moveLatch(int pos){
 }
 
 bool driveDoneMoving() {
-  return //(motor_horizontalR.distanceToGo() == 0 &&
-          (motor_horizontalL.distanceToGo() == 0 &&
-          //motor_verticalR.distanceToGo() == 0 &&
-          motor_verticalL.distanceToGo() == 0);
+  return (motor_horizontal.distanceToGo() == 0 &&
+          motor_vertical.distanceToGo() == 0);
 }
 
 void loop() {
 
-  motor_horizontalL.run();
-//  motor_horizontalR.run();
-  motor_verticalL.run();
-//  motor_verticalR.run();
+  motor_horizontal.run();
+  motor_vertical.run();
   
   switch(state){
     case INIT_0:
