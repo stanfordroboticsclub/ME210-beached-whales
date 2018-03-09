@@ -4,8 +4,11 @@
 #include <MultiStepper.h>
 
 // Servo constants and instances
-#define SERVO_PIN A9
+#define LATCH_SERVO_PIN A8
 Servo latch;
+
+#define TILT_SERVO_PIN A9
+Servo tilt;
 
 // Stepper constants and instances
 #define STEP_V   14
@@ -22,6 +25,9 @@ Servo latch;
 #define OPEN 0
 #define CLOSE 1
 
+#define TILT_UP   0
+#define TILT_DOWN 1
+
 #define DIR_UP 0
 #define DIR_DOWN 1
 #define DIR_LEFT 2
@@ -36,7 +42,7 @@ Servo latch;
 #define INCHES_B_TO_GATE  21
 #define INCHES_THRU_GATE  32
 
-#define ROUND_A_X  46
+#define ROUND_A_X  42
 #define ROUNDS_Y   13
 //#define ABSOLUTE_PO
 //#define ABSOLUTE_B
@@ -88,8 +94,11 @@ void setup() {
   pinMode(STEP_V, OUTPUT);
   pinMode(DIR_V, OUTPUT);
 
-  latch.attach(SERVO_PIN);
-  latch.write(0);
+  latch.attach(LATCH_SERVO_PIN);
+  latch.write(180);
+
+  tilt.attach(TILT_SERVO_PIN);
+  tilt.write(140);
 
   resetCoordinates();
 
@@ -97,12 +106,18 @@ void setup() {
 }
 
 bool waitForTime(int delayTime){
+  static bool isFirstTime = true;
+  if(isFirstTime) timer.reset();
   timer.interval(delayTime);
   if(timer.check()){
     timer.reset();
+    isFirstTime = true;
     return true;
   }
-  else return false;
+  else{
+    isFirstTime = false;
+    return false;
+  }
 }
 
 int mapSpeed(int speedUnmapped){
@@ -170,12 +185,20 @@ void moveLatch(int pos){
   if(pos == OPEN && lastPos != OPEN){
     Serial.println("OPENING");
     lastPos = OPEN;
-    latch.write(45);
+    latch.write(135);
   }
   else if(pos == CLOSE && lastPos != CLOSE){
     Serial.println("CLOSING");
     lastPos = CLOSE;
-    latch.write(0);
+    latch.write(180);
+  }
+}
+
+void moveTilt(int pos) {
+  if (pos == TILT_UP) {
+    tilt.write(140);
+  } else if (pos == TILT_DOWN) {
+    tilt.write(0);
   }
 }
 
@@ -190,7 +213,7 @@ void babysit() {
 }
 
 void lineUpInCorner_Relative() {
-  driveToCoordinate(-45, -16);
+  driveToCoordinate(-42, -16);
   while(!driveDoneMoving()) babysit();
   
   resetCoordinates();
@@ -209,42 +232,56 @@ void moveToA_andDrop_Relative() {
   while(!driveDoneMoving()) babysit();
 
   // Open latch for set time
-  timer.reset();
+  moveTilt(TILT_DOWN);
+//  timer.reset();
+  while(!waitForTime(500)) babysit();
   moveLatch(OPEN);
-  while(!waitForTime(140)) babysit();
-
-  // Close latch
+  while(!waitForTime(400)) babysit();
   moveLatch(CLOSE);
+
+//  timer.reset();
+  while(!waitForTime(1000)) babysit();
+  moveTilt(TILT_UP);
 }
 
 void moveToA_Absolute() {
-  // Drive in X
-  driveToCoordinate(ROUND_A_X, 0);
-  while(!driveDoneMoving()) babysit();
+//  // Drive in X
+//  driveToCoordinate(ROUND_A_X, 0);
+//  while(!driveDoneMoving()) babysit();
   
   // Drive in Y
   driveToCoordinate(ROUND_A_X, ROUNDS_Y);
   while(!driveDoneMoving()) babysit();
+//  driveToCoordinate(ROUND_A_X, ROUNDS_Y+2);
+//  while(!driveDoneMoving()) babysit();
+//  motor_vertical.setCurrentPosition(ROUNDS_Y);
 }
 
 void reload_Absolute() {
+  // Line up
+  lineUpInCorner_Absolute();
+  
   // Drive in X
   driveToCoordinate(0, ROUNDS_Y);
   while(!driveDoneMoving()) babysit();
 
   // Wait while being reloaded
-  timer.reset();
   while(!waitForTime(2000)) babysit();
-
-  // Line up
-  lineUpInCorner_Absolute();
 }
 
 void loop() {
   moveToA_andDrop_Relative();
   lineUpInCorner_Relative();
-  moveToA_Absolute();
   reload_Absolute();
+  moveToA_Absolute();
+
+  driveToCoordinate(-2, ROUNDS_Y-5);
+  while(!driveDoneMoving()) babysit();
+  motor_horizontal.setCurrentPosition(0);
+  driveToCoordinate(0, ROUNDS_Y+2);
+  while(!driveDoneMoving()) babysit();
+  motor_vertical.setCurrentPosition(ROUNDS_Y*STEPS_PER_INCH);
+
   moveToA_Absolute();
 
   while(true);
