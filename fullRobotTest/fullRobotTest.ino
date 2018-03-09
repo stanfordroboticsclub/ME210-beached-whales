@@ -35,13 +35,16 @@ Servo latch;
 #define INCHES_B_TO_GATE  21
 #define INCHES_THRU_GATE  32
 
-//#define ABSOLUTE_A   
+#define ROUND_A_X  46
+#define ROUNDS_Y   13
 //#define ABSOLUTE_PO
 //#define ABSOLUTE_B
 
 int robotX, robotY;
 
 enum State {
+  CALIBRATE, 
+  MOVE_TO_A,
   INIT_0,
   FORWARD_1,
   DROP_BALLS_2,
@@ -58,7 +61,7 @@ AccelStepper motor_horizontal(1, STEP_H, DIR_H);
 AccelStepper motor_vertical(1, STEP_V, DIR_V);
 
 static Metro timer = Metro(0);
-State state = INIT_0;
+State state = CALIBRATE;
 
 //predeclaration
 bool waitForTime(int delayTime);
@@ -75,16 +78,14 @@ void setup() {
   motor_vertical.setAcceleration(MAX_ACCEL);
 
   pinMode(STEP_H, OUTPUT);
-  pinMode(STEP_HR, OUTPUT);
   pinMode(DIR_H, OUTPUT);
-  pinMode(DIR_HR, OUTPUT);
   pinMode(STEP_V, OUTPUT);
-  pinMode(STEP_VR, OUTPUT);
   pinMode(DIR_V, OUTPUT);
-  pinMode(DIR_VR, OUTPUT);
 
   latch.attach(SERVO_PIN);
   latch.write(0);
+
+  resetCoordinates();
 
   delay(2000);
 }
@@ -127,29 +128,21 @@ int mapSpeed(int speedUnmapped){
 void driveTo(int dir, int distance) {
   int steps = STEPS_PER_INCH * distance;
   switch(dir){
-    case DIR_UP:
+    case DIR_RIGHT:
       motor_horizontal.move(-steps);
-      motor_horizontalR.move(steps);
       motor_vertical.move(0);
-      motor_verticalR.move(0);
-      break;
-    case DIR_DOWN:
-      motor_horizontal.move(steps);
-      motor_horizontalR.move(-steps);
-      motor_vertical.move(0);
-      motor_verticalR.move(0);
       break;
     case DIR_LEFT:
-      motor_horizontal.move(0);
-      motor_horizontalR.move(0);
-      motor_vertical.move(steps);
-      motor_verticalR.move(-steps);
+      motor_horizontal.move(steps);
+      motor_vertical.move(0);
       break;
-    case DIR_RIGHT:
+    case DIR_UP:
       motor_horizontal.move(0);
-      motor_horizontalR.move(0);
+      motor_vertical.move(steps);
+      break;
+    case DIR_DOWN:
+      motor_horizontal.move(0);
       motor_vertical.move(-steps);
-      motor_verticalR.move(steps);
       break;
     default:
       Serial.println("driveTo input error!");
@@ -157,8 +150,8 @@ void driveTo(int dir, int distance) {
 }
 
 void driveToCoordinate(int x, int y) {
-    motor_horizontal.moveTo(STEPS_PER_INCH * y);
-    motor_vertical.moveTo(STEPS_PER_INCH * x);
+    motor_horizontal.moveTo(STEPS_PER_INCH * x);
+    motor_vertical.moveTo(STEPS_PER_INCH * y);
 }
 
 void resetCoordinates() {
@@ -178,9 +171,6 @@ void moveLatch(int pos){
     lastPos = CLOSE;
     latch.write(0);
   }
-//  else{
-//    Serial.println("moveLatch input error!");
-//  }
 }
 
 bool driveDoneMoving() {
@@ -188,73 +178,143 @@ bool driveDoneMoving() {
           motor_vertical.distanceToGo() == 0);
 }
 
-void loop() {
-
+void babysit() {
   motor_horizontal.run();
   motor_vertical.run();
+}
+
+void lineUpInCorner_Relative() {
+  driveToCoordinate(-45, -16);
+  while(!driveDoneMoving()) babysit();
   
-  switch(state){
-    case INIT_0:
-      driveTo(DIR_LEFT,INCHES_START_TO_A);
-      state = FORWARD_1;
-      break;
-    
-    case FORWARD_1:
-      if (driveDoneMoving()) {
-        driveTo(DIR_UP, 2);
-        state = RAM_1;
-//        state = DROP_BALLS_2;
-//        timer.reset();
-      }
-      break;
+  resetCoordinates();
+}
 
-    case RAM_1:
-      if (driveDoneMoving()) {
-        state = DROP_BALLS_2;
-        timer.reset();
-      }
-      break;
+void lineUpInCorner_Absolute() {
+  driveToCoordinate(-3, -3);
+  while(!driveDoneMoving()) babysit();
+  
+  resetCoordinates();
+}
+
+void moveToA_andDrop_Relative() {
+  // Drive in X
+  driveTo(DIR_LEFT, INCHES_START_TO_A);
+  while(!driveDoneMoving()) babysit();
+
+  // Open latch for set time
+  timer.reset();
+  moveLatch(OPEN);
+  while(!waitForTime(140)) babysit();
+
+  // Close latch
+  moveLatch(CLOSE);
+}
+
+void moveToA_Absolute() {
+  // Drive in X
+  driveToCoordinate(ROUND_A_X, 0);
+  while(!driveDoneMoving()) babysit();
+  
+  // Drive in Y
+  driveToCoordinate(ROUND_A_X, ROUNDS_Y);
+  while(!driveDoneMoving()) babysit();
+}
+
+void reload_Absolute() {
+  // Drive in X
+  driveToCoordinate(0, ROUNDS_Y);
+  while(!driveDoneMoving()) babysit();
+
+  // Wait while being reloaded
+  timer.reset();
+  while(!waitForTime(2000)) babysit();
+
+  // Line up
+  lineUpInCorner_Absolute();
+}
+
+void loop() {
+  moveToA_andDrop_Relative();
+  lineUpInCorner_Relative();
+  moveToA_Absolute();
+  reload_Absolute();
+  moveToA_Absolute();
+
+  while(true);
+  
+//  switch(state){
+//    
+    
+    // case CALIBRATE:
+    //   lineUpInCorner();
+    //   state = MOVE_TO_A;
+
+    // case MOVE_TO_A:
+      // moveToA_andDrop();
+
+
+//     case INIT_0:
+//       driveTo(DIR_LEFT,INCHES_START_TO_A);
+//       state = FORWARD_1;
+//       break;
+    
+//     case FORWARD_1:
+//       if (driveDoneMoving()) {
+//         driveTo(DIR_UP, 2);
+//         state = RAM_1;
+// //        state = DROP_BALLS_2;
+// //        timer.reset();
+//       }
+//       break;
+
+//     case RAM_1:
+//       if (driveDoneMoving()) {
+//         state = DROP_BALLS_2;
+//         timer.reset();
+//       }
+//       break;
       
-    case DROP_BALLS_2:
-      moveLatch(OPEN);
-      if (waitForTime(140)) {
-        moveLatch(CLOSE);
-        driveTo(DIR_LEFT, INCHES_A_TO_PO + INCHES_PO_TO_B);
-        state = FORWARD_3;
-      }
-      break;
+//     case DROP_BALLS_2:
+//       moveLatch(OPEN);
+//       if (waitForTime(140)) {
+//         moveLatch(CLOSE);
+//         driveTo(DIR_LEFT, INCHES_A_TO_PO + INCHES_PO_TO_B);
+//         state = FORWARD_3;
+//       }
+//       break;
     
-    case FORWARD_3:
-      if (driveDoneMoving()) {
-        driveTo(DIR_UP, 2);
-        state = RAM_2;
-      }
-      break;
+//     case FORWARD_3:
+//       if (driveDoneMoving()) {
+//         driveTo(DIR_UP, 2);
+//         state = RAM_2;
+//       }
+//       break;
 
-    case RAM_2:
-      if (driveDoneMoving()) {
-        state = DROP_BALLS_4;
-        timer.reset();
-      }
-      break;
+//     case RAM_2:
+//       if (driveDoneMoving()) {
+//         state = DROP_BALLS_4;
+//         timer.reset();
+//       }
+//       break;
     
-    case DROP_BALLS_4:
-      moveLatch(OPEN);
-      if (waitForTime(160)) {
-        moveLatch(CLOSE);
-        driveTo(DIR_LEFT, INCHES_B_TO_GATE);
-        state = FORWARD_5;
-      }
-      break;
+//     case DROP_BALLS_4:
+//       moveLatch(OPEN);
+//       if (waitForTime(160)) {
+//         moveLatch(CLOSE);
+//         driveTo(DIR_LEFT, INCHES_B_TO_GATE);
+//         state = FORWARD_5;
+//       }
+//       break;
     
-    case FORWARD_5:
-      if (driveDoneMoving()) {
-        driveTo(DIR_UP, INCHES_B_TO_GATE * 1.5);
-        state = RIGHT_6;
-      }
-      break;
+//     case FORWARD_5:
+//       if (driveDoneMoving()) {
+//         driveTo(DIR_UP, INCHES_B_TO_GATE * 1.5);
+//         state = RIGHT_6;
+//       }
+//       break;
     
-    case RIGHT_6:
-      break;
-  }
+//     case RIGHT_6:
+//       break;
+//  }
 }
