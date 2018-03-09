@@ -1,6 +1,7 @@
 #include <AccelStepper.h>
 #include <Servo.h>
 #include <Metro.h>
+#include <MultiStepper.h>
 
 // Servo constants and instances
 #define SERVO_PIN A9
@@ -57,8 +58,10 @@ enum State {
   RAM_2,
 };
 
+MultiStepper motors;
 AccelStepper motor_horizontal(1, STEP_H, DIR_H);
 AccelStepper motor_vertical(1, STEP_V, DIR_V);
+
 
 static Metro timer = Metro(0);
 State state = CALIBRATE;
@@ -73,6 +76,9 @@ void setup() {
   Serial.begin(9600);
   motor_horizontal.setMaxSpeed(MAX_SPEED);
   motor_vertical.setMaxSpeed(MAX_SPEED);
+
+  motors.addStepper(motor_horizontal);
+  motors.addStepper(motor_vertical);
   
   motor_horizontal.setAcceleration(MAX_ACCEL);
   motor_vertical.setAcceleration(MAX_ACCEL);
