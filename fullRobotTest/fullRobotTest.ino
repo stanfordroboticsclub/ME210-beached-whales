@@ -20,15 +20,13 @@ Servo latch;
 #define MAX_SPEED 1000
 #define MAX_ACCEL 1000
 
-#define HORIZONTAL_MOTORS 0
-#define VERTICAL_MOTORS   1
 #define OPEN 0
 #define CLOSE 1
 
-#define DIR_RIGHT -1
-#define DIR_LEFT  1
-#define DIR_FRONT 1
-#define DIR_BACK  -1
+#define DIR_UP 0
+#define DIR_DOWN 1
+#define DIR_LEFT 2
+#define DIR_RIGHT 3
 
 #define STEPS_PER_INCH    80
 
@@ -126,19 +124,36 @@ void runMotor(char* motor, int speedinput, int dir){
   }
 }
 
+//input DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT, and distance that needs to travel in inches
 void driveTo(int dir, int distance) {
-  if (dir == HORIZONTAL_MOTORS) {
-    motor_horizontalL.move(distance);
-    motor_horizontalR.move(-distance);
-    motor_verticalL.move(0);
-    motor_verticalR.move(0);
-  } else if (dir == VERTICAL_MOTORS) {
-    motor_horizontalL.move(0);
-    motor_horizontalR.move(0);
-    motor_verticalL.move(distance);
-    motor_verticalR.move(-distance);
-  } else {
-    Serial.println("driveTo input error!");
+  int steps = STEPS_PER_INCH * distance;
+  switch(dir){
+    case DIR_UP:
+      motor_horizontalL.move(-steps);
+      motor_horizontalR.move(steps);
+      motor_verticalL.move(0);
+      motor_verticalR.move(0);
+      break;
+    case DIR_DOWN:
+      motor_horizontalL.move(steps);
+      motor_horizontalR.move(-steps);
+      motor_verticalL.move(0);
+      motor_verticalR.move(0);
+      break;
+    case DIR_LEFT:
+      motor_horizontalL.move(0);
+      motor_horizontalR.move(0);
+      motor_verticalL.move(steps);
+      motor_verticalR.move(-steps);
+      break;
+    case DIR_RIGHT:
+      motor_horizontalL.move(0);
+      motor_horizontalR.move(0);
+      motor_verticalL.move(-steps);
+      motor_verticalR.move(steps);
+      break;
+    default:
+      Serial.println("driveTo input error!");
   }
 }
 
@@ -176,13 +191,13 @@ void loop() {
   
   switch(state){
     case INIT_0:
-      driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * INCHES_START_TO_A);
+      driveTo(DIR_LEFT,INCHES_START_TO_A);
       state = FORWARD_1;
       break;
     
     case FORWARD_1:
       if (driveDoneMoving()) {
-        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * 2);
+        driveTo(DIR_UP, 2);
         state = RAM_1;
       }
       break;
@@ -198,14 +213,14 @@ void loop() {
       moveLatch(OPEN);
       if (waitForTime(140)) {
         moveLatch(CLOSE);
-        driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * (INCHES_A_TO_PO + INCHES_PO_TO_B));
+        driveTo(DIR_LEFT, INCHES_A_TO_PO + INCHES_PO_TO_B);
         state = FORWARD_3;
       }
       break;
     
     case FORWARD_3:
       if (driveDoneMoving()) {
-        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * 2);
+        driveTo(DIR_UP, 2);
         state = RAM_2;
       }
       break;
@@ -221,14 +236,14 @@ void loop() {
       moveLatch(OPEN);
       if (waitForTime(160)) {
         moveLatch(CLOSE);
-        driveTo(VERTICAL_MOTORS, DIR_FRONT * STEPS_PER_INCH * INCHES_B_TO_GATE);
+        driveTo(DIR_LEFT, INCHES_B_TO_GATE);
         state = FORWARD_5;
       }
       break;
     
     case FORWARD_5:
       if (driveDoneMoving()) {
-        driveTo(HORIZONTAL_MOTORS, DIR_RIGHT * STEPS_PER_INCH * INCHES_B_TO_GATE * 1.5);
+        driveTo(DIR_UP, INCHES_B_TO_GATE * 1.5);
         state = RIGHT_6;
       }
       break;
