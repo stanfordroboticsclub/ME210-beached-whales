@@ -57,7 +57,6 @@ AccelStepper motor_vertical(1, STEP_V, DIR_V);
 
 static Metro timer = Metro(0);
 static Metro gameTimer = Metro((2*60 + 10)*1000); // 2 min, 10 sec
-State state = CALIBRATE;
 
 void setup() {
   Serial.begin(9600);
