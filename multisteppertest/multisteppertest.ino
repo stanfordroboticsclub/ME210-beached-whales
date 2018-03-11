@@ -53,13 +53,6 @@ Servo tilt;
 #define ROUND_B_X  77 // TODO
 #define GATE_X     98 // TODO
 
-long ROUND_A[2] = {ROUND_A_X, ROUNDS_Y};
-long ROUND_P[2] = {PO_X, ROUNDS_Y};
-long ROUND_B[2] = {ROUND_B_X, ROUNDS_Y};
-long GATE[2] = {GATE_X, ROUNDS_Y};
-long HOMING[2] = {-1, -1};
-long RELOAD[2] = {-1, ROUNDS_Y};
-
 MultiStepper motors;
 AccelStepper motor_horizontal(1, STEP_H, DIR_H);
 AccelStepper motor_vertical(1, STEP_V, DIR_V);
@@ -72,13 +65,17 @@ void setup() {
   Serial.begin(9600);
   motor_horizontal.setMaxSpeed(MAX_SPEED);
   motor_vertical.setMaxSpeed(MAX_SPEED);
-  
+
   motor_horizontal.setAcceleration(MAX_ACCEL);
   motor_vertical.setAcceleration(MAX_ACCEL);
 
   motors.addStepper(motor_horizontal);
   motors.addStepper(motor_vertical);
   motors.setMaxSpeed(MAX_SPEED);
+
+
+//  motors.addStepper(motor_horizontal);
+//  motors.addStepper(motor_vertical);
 
   pinMode(STEP_H, OUTPUT);
   pinMode(DIR_H, OUTPUT);
@@ -93,8 +90,8 @@ void setup() {
 
   endTimer.begin(endGame, (2*60 + 10)*1000000);
 
-  resetOrigin();
-  delay(500);
+//  resetOrigin();
+  delay(500);  
 }
 
 void endGame(){
@@ -126,40 +123,30 @@ void driveToDistance(int dir, int distance) {
   int steps = STEPS_PER_INCH * distance;
   switch(dir){
     case DIR_RIGHT:
-    {
-      long right[2] = {-steps, 0};
-      motors.move(right);
-    }
+      motor_horizontal.move(-steps);
+      motor_vertical.move(0);
       break;
     case DIR_LEFT:
-    {
-      long left[2] = {steps, 0};
-      motors.move(left);
-    }
+      motor_horizontal.move(steps);
+      motor_vertical.move(0);
       break;
     case DIR_UP:
-    {
-      long up[2] = {0, steps};
-      motors.move(up);
-    }
+      motor_horizontal.move(0);
+      motor_vertical.move(steps);
       break;
     case DIR_DOWN:
-    {
-      long down[2] = {0, -steps};
-      motors.move(down);
-    }
+      motor_horizontal.move(0);
+      motor_vertical.move(-steps);
       break;
     default:
       Serial.println("driveTo input error!");
-      break;
   }
 }
 
 void driveToCoordinate(int x, int y) {
 //    motor_horizontal.moveTo(STEPS_PER_INCH * x);
 //    motor_vertical.moveTo(STEPS_PER_INCH * y);
-  long pos[] = {x*STEPS_PER_INCH, y*STEPS_PER_INCH};
-  motors.moveTo(pos);
+  motors.run();
 }
 
 void resetOrigin() {
@@ -190,83 +177,17 @@ void moveTilt(int pos) {
 }
 
 bool driveDoneMoving() {
-//  return (motor_horizontal.distanceToGo() == 0 &&
-//          motor_vertical.distanceToGo() == 0);
-  return (!motors.run());
+  return (motor_horizontal.distanceToGo() == 0 &&
+          motor_vertical.distanceToGo() == 0);
 }
 
 void babysit() {
-//  motor_horizontal.run();
-//  motor_vertical.run();
+
   motors.run();
+
 }
 
-void lineUpInOrigin_Relative() {
-  driveToCoordinate(-30, -16);
-  while(!driveDoneMoving()) babysit();
-  
-  resetOrigin();
-}
 
-void lineUpInOrigin_Absolute() {
-  driveToCoordinate(-3, -3);
-  while(!driveDoneMoving()) babysit();
-  
-  resetOrigin();
-}
-
-void moveToA_Relative() {
-  // Drive in X
-  driveToDistance(DIR_LEFT, INCHES_START_TO_A - 10);
-  while(!driveDoneMoving()) babysit();
-  driveToDistance(DIR_UP, 5);
-  while(!driveDoneMoving()) babysit();
-}
-
-void tiltAndDropBalls(int numBalls) {
-  // Tilt down
-  moveTilt(TILT_DOWN);
-  while(!waitForTime(500)) babysit();
-
-  // Drop balls
-  dropBalls(numBalls);
-
-  // Tilt up
-  while(!waitForTime(1500)) babysit();
-  moveTilt(TILT_UP);
-}
-
-void dropBalls(int numBalls) {
-  moveLatch(OPEN);
-  while(!waitForTime(100 * numBalls)) babysit();
-  moveLatch(CLOSE);
-}
-
-void moveToRound_Absolute(int roundX) {
-  // Go slightly behind
-  driveToCoordinate(roundX, ROUNDS_Y-2);
-  while(!driveDoneMoving()) babysit();
-
-  // Recalibrate against wall
-  driveToCoordinate(roundX, ROUNDS_Y+2);
-  while(!driveDoneMoving()) babysit();
-  motor_vertical.setCurrentPosition(ROUNDS_Y * STEPS_PER_INCH);
-}
-
-void moveToReload_Absolute() {
-  // Aim to not touch reload button first, recalibrate x
-  driveToCoordinate(-2, ROUNDS_Y - 5);
-  while(!driveDoneMoving()) babysit();
-  motor_horizontal.setCurrentPosition(0);
-
-  // Overshoot touching reload button, recalibrate y
-  driveToCoordinate(0, ROUNDS_Y + 2);
-  while(!driveDoneMoving()) babysit();
-  motor_vertical.setCurrentPosition(ROUNDS_Y * STEPS_PER_INCH);
-
-  // Wait while being reloaded
-  while(!waitForTime(RELOAD_TIME)) babysit();
-}
 
 void goToGate() {
   driveToCoordinate(GATE_X, ROUNDS_Y - 5);
@@ -274,43 +195,11 @@ void goToGate() {
 }
 
 void loop() {
-  // Windup for bump
-  driveToDistance(DIR_RIGHT, 10);
-  while(motors.run());
-  driveToDistance(DIR_LEFT, 30);
-  while(motors.run());
-  
-  moveToA_Relative();
-  tiltAndDropBalls(4);
-  
-  lineUpInOrigin_Relative();
-  moveToReload_Absolute();
-  
-  moveToRound_Absolute(ROUND_A_X);
-  
-  tiltAndDropBalls(4);
 
-  goToGate();
-  while(true);
+  long pos[2] = {30*STEPS_PER_INCH, 10*STEPS_PER_INCH};
+  motors.moveTo(pos);
+  motors.runSpeedToPosition();
+//  while(!motors.run()){}
+//  while(true);
   
-//  moveToRound_Absolute(ROUND_B_X);
-//  tiltAndDropBalls(0);
-//
-//  moveToReload_Absolute();
-//
-//  moveToRound_Absolute(PO_X);
-//  dropBalls(4);
-//
-//  moveToRound_Absolute(ROUND_B_X);
-//  tiltAndDropBalls(0);
-//
-//  while(true) {
-//    moveToReload_Absolute();
-//    
-//    moveToRound_Absolute(PO_X);
-//    dropBalls(4);
-//
-//    moveToRound_Absolute(ROUND_A_X);
-//    tiltAndDropBalls(0);
-//  }
 }
