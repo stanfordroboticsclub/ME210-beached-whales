@@ -56,7 +56,9 @@ AccelStepper motor_horizontal(1, STEP_H, DIR_H);
 AccelStepper motor_vertical(1, STEP_V, DIR_V);
 
 static Metro timer = Metro(0);
-static Metro gameTimer = Metro((2*60 + 10)*1000); // 2 min, 10 sec
+//static Metro gameTimer = Metro((2*60 + 10)*1000); // 2 min, 10 sec
+IntervalTimer endTimer;
+bool timerExpired = false;
 
 void setup() {
   Serial.begin(9600);
@@ -80,11 +82,15 @@ void setup() {
   tilt.attach(TILT_SERVO_PIN);
   tilt.write(140);
 
+  endTimer.begin(endGame, (2*60 + 10)*1000000);
+
   resetOrigin();
+//  gameTimer.reset();
+  delay(2000);  
+}
 
-  delay(2000);
-
-  gameTimer.reset();
+void endGame(){
+  while(true);
 }
 
 bool waitForTime(int delayTime){
@@ -106,26 +112,6 @@ int mapSpeed(int speedUnmapped){
   int speedMapped = map(speedUnmapped, 0, 100, 0, MAX_SPEED);
   return speedMapped;
 }
-
-//speed input should range from 0 - 100
-//void runMotor(char* motor, int speedinput, int dir){
-//  int speedMapped = mapSpeed(speedinput);
-//  if(motor == "Horizontal"){
-//    motor_horizontal.setSpeed(speedMapped * dir);
-//    motor_horizontalR.setSpeed(speedMapped * -1* dir);
-//    motor_horizontal.runSpeed();
-//    motor_horizontalR.runSpeed();
-//  }
-//  else if(motor == "Vertical"){
-//    motor_vertical.setSpeed(speedMapped * dir);
-//    motor_verticalR.setSpeed(speedMapped * -1* dir);
-//    motor_vertical.runSpeed();
-//    motor_verticalR.runSpeed();
-//  }
-//  else{
-//    Serial.println("runMotor input error!");
-//  }
-//}
 
 //input DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT, and distance that needs to travel in inches
 void driveToDistance(int dir, int distance) {
@@ -190,11 +176,14 @@ bool driveDoneMoving() {
 }
 
 void babysit() {
-  // If 2:10 timer hasn't expired, run motors
-  if (!gameTimer.check()) {
+//  // If 2:10 timer hasn't expired, run motors
+//  if (!gameTimer.check()) {
     motor_horizontal.run();
     motor_vertical.run();
-  }
+//  }
+//  else{
+//    timerExpired = true;
+//  }
 }
 
 void lineUpInOrigin_Relative() {
@@ -289,6 +278,16 @@ void loop() {
 
   moveToRound_Absolute(ROUND_B_X);
   tiltAndDropBalls(0);
+
+  while(!timerExpired){
+    moveToReload_Absolute();
+    
+    moveToRound_Absolute(PO_X);
+    tiltAndDropBalls(4);
+
+    moveToRound_Absolute(ROUND_B_X);
+    tiltAndDropBalls(0);
+  }
 
   while(true);
 }
