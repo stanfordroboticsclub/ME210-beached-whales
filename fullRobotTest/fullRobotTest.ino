@@ -178,7 +178,7 @@ void moveLatch(int pos){
 
 void moveTilt(int pos) {
   if (pos == TILT_UP) {
-    tilt.write(140);
+    tilt.write(145);
   } else if (pos == TILT_DOWN) {
     tilt.write(0);
   }
@@ -198,7 +198,7 @@ void babysit() {
 }
 
 void lineUpInOrigin_Relative() {
-  driveToCoordinate(-40, -16);
+  driveToCoordinate(-30, -16);
   while(!driveDoneMoving()) babysit();
   
   resetOrigin();
@@ -217,19 +217,23 @@ void moveToA_Relative() {
   while(!driveDoneMoving()) babysit();
 }
 
-void tiltAndDropBalls() {
+void tiltAndDropBalls(int numBalls) {
   // Tilt down
   moveTilt(TILT_DOWN);
   while(!waitForTime(500)) babysit();
 
   // Drop balls
-  moveLatch(OPEN);
-  while(!waitForTime(400)) babysit();
-  moveLatch(CLOSE);
+  dropBalls(numBalls);
 
   // Tilt up
   while(!waitForTime(1000)) babysit();
   moveTilt(TILT_UP);
+}
+
+void dropBalls(int numBalls) {
+  moveLatch(OPEN);
+  while(!waitForTime(100 * numBalls)) babysit();
+  moveLatch(CLOSE);
 }
 
 void moveToRound_Absolute(int roundX) {
@@ -258,18 +262,33 @@ void moveToReload_Absolute() {
   while(!waitForTime(1000)) babysit();
 }
 
+void goToGate() {
+  driveToCoordinate(GATE_X, ROUNDS_Y - 5);
+  while(!driveDoneMoving()) babysit();
+}
+
 void loop() {
   moveToA_Relative();
-  tiltAndDropBalls();
+  tiltAndDropBalls(4);
   
   lineUpInOrigin_Relative();
   moveToReload_Absolute();
   
   moveToRound_Absolute(ROUND_A_X);
-  tiltAndDropBalls();
+  tiltAndDropBalls(4);
+
+  goToGate();
   
   moveToRound_Absolute(ROUND_B_X);
-  tiltAndDropBalls();
+  tiltAndDropBalls(0);
+
+  moveToReload_Absolute();
+
+  moveToRound_Absolute(PO_X);
+  tiltAndDropBalls(4);
+
+  moveToRound_Absolute(ROUND_B_X);
+  tiltAndDropBalls(0);
 
   while(true);
 }
