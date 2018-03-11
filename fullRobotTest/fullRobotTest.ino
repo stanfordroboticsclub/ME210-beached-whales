@@ -3,6 +3,8 @@
 #include <Metro.h>
 #include <MultiStepper.h>
 
+#define RELOAD_TIME 500
+
 // Servo constants and instances
 #define LATCH_SERVO_PIN A8
 Servo latch;
@@ -58,7 +60,6 @@ AccelStepper motor_vertical(1, STEP_V, DIR_V);
 static Metro timer = Metro(0);
 //static Metro gameTimer = Metro((2*60 + 10)*1000); // 2 min, 10 sec
 IntervalTimer endTimer;
-bool timerExpired = false;
 
 void setup() {
   Serial.begin(9600);
@@ -85,8 +86,7 @@ void setup() {
   endTimer.begin(endGame, (2*60 + 10)*1000000);
 
   resetOrigin();
-//  gameTimer.reset();
-  delay(2000);  
+  delay(500);  
 }
 
 void endGame(){
@@ -176,14 +176,9 @@ bool driveDoneMoving() {
 }
 
 void babysit() {
-//  // If 2:10 timer hasn't expired, run motors
-//  if (!gameTimer.check()) {
-    motor_horizontal.run();
-    motor_vertical.run();
-//  }
-//  else{
-//    timerExpired = true;
-//  }
+  motor_horizontal.run();
+  motor_vertical.run();
+
 }
 
 void lineUpInOrigin_Relative() {
@@ -248,7 +243,7 @@ void moveToReload_Absolute() {
   motor_vertical.setCurrentPosition(ROUNDS_Y * STEPS_PER_INCH);
 
   // Wait while being reloaded
-  while(!waitForTime(1000)) babysit();
+  while(!waitForTime(RELOAD_TIME)) babysit();
 }
 
 void goToGate() {
@@ -274,20 +269,18 @@ void loop() {
   moveToReload_Absolute();
 
   moveToRound_Absolute(PO_X);
-  tiltAndDropBalls(4);
+  dropBalls(4);
 
   moveToRound_Absolute(ROUND_B_X);
   tiltAndDropBalls(0);
 
-  while(!timerExpired){
+  while(true){
     moveToReload_Absolute();
     
     moveToRound_Absolute(PO_X);
-    tiltAndDropBalls(4);
+    dropBalls(4);
 
-    moveToRound_Absolute(ROUND_B_X);
+    moveToRound_Absolute(ROUND_A_X);
     tiltAndDropBalls(0);
   }
-
-  while(true);
 }
